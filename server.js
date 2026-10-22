@@ -9,38 +9,35 @@ const PORT = 3000;
 app.get("/", (req, res) => {
   res.send("Hello from my API!");
 });
-
 app.get("/jobs", async (req, res) => {
+  const { location, type } = req.query;
+
+  const conditions = [];
+  const values = [];
+
+  if (location) {
+    values.push(`%${location}%`);
+    conditions.push(`location ILIKE $${values.length}`);
+  }
+
+  if (type) {
+    values.push(type);
+    conditions.push(`type = $${values.length}`);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
   try {
-    const result = await pool.query("SELECT * FROM jobs ORDER BY id");
+    const result = await pool.query(
+      `SELECT * FROM jobs ${where} ORDER BY id`,
+      values
+    );
     res.json(result.rows);
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ message: "Server error" });
   }
 });
-
-app.get("/jobs/:id", async (req, res) => {
-  const id = Number(req.params.id);
-
-  if (!Number.isInteger(id)) {
-    return res.status(400).json({ message: "Invalid job id" });
-  }
-
-  try {
-    const result = await pool.query("SELECT * FROM jobs WHERE id = $1", [id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Job not found" });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
 app.post("/jobs", async (req, res) => {
   const { title, company, location, type } = req.body;
 
