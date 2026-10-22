@@ -110,6 +110,63 @@ app.put("/jobs/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+app.post("/jobs/:id/applications", async (req, res) => {
+  const jobId = Number(req.params.id);
+  const { applicant_name, applicant_email, message } = req.body;
+
+  if (!Number.isInteger(jobId)) {
+    return res.status(400).json({ message: "Invalid job id" });
+  }
+
+  if (!applicant_name || !applicant_email) {
+    return res
+      .status(400)
+      .json({ message: "applicant_name and applicant_email are required" });
+  }
+
+  try {
+    const job = await pool.query("SELECT id FROM jobs WHERE id = $1", [jobId]);
+
+    if (job.rows.length === 0) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    const result = await pool.query(
+      "INSERT INTO applications (job_id, applicant_name, applicant_email, message) VALUES ($1, $2, $3, $4) RETURNING *",
+      [jobId, applicant_name, applicant_email, message]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+app.get("/jobs/:id/applications", async (req, res) => {
+  const jobId = Number(req.params.id);
+
+  if (!Number.isInteger(jobId)) {
+    return res.status(400).json({ message: "Invalid job id" });
+  }
+
+  try {
+    const job = await pool.query("SELECT id FROM jobs WHERE id = $1", [jobId]);
+
+    if (job.rows.length === 0) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM applications WHERE job_id = $1 ORDER BY created_at DESC",
+      [jobId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
