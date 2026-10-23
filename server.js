@@ -2,66 +2,42 @@ const express = require("express");
 const pool = require("./db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const cors = require("cors");
 const { authenticate, requireRole } = require("./auth");
 const app = express();
 app.use(express.json());
+app.use(cors({ origin: "http://localhost:3001" }));
+
 
 const PORT = 3000;
 
 app.get("/", (req, res) => {
   res.send("Hello from my API!");
 });
-app.get(
-  "/jobs/:id/applications",
-  authenticate,
-  requireRole("company"),
-  async (req, res) => {
-    const jobId = Number(req.params.id);
+app.get("/jobs", async (req, res) => {
+  const { location, type } = req.query;
 
-    if (!Number.isInteger(jobId)) {
-      return res.status(400).json({ message: "Invalid job id" });
-    }
+  const conditions = [];
+  const values = [];
 
-    try {
-      const job = await pool.query("SELECT user_id FROM jobs WHERE id = $1", [
-        jobId,
-      ]);
-
-      if (job.rows.length === 0) {
-        return res.status(404).json({ message: "Job not found" });
-      }
-
-      if (job.rows[0].user_id !== req.user.id) {
-        return res
-          .status(403)
-          .json({ message: "You can only view applications for your own jobs" });
-      }
-
-      const result = await pool.query(
-        "SELECT * FROM applications WHERE job_id = $1 ORDER BY created_at DESC",
-        [jobId]
-      );
-
-      res.json(result.rows);
-    } catch (error) {
-      console.error(error.message);
-      res.status(500).json({ message: "Server error" });
-    }
+  if (location) {
+    values.push(`%${location}%`);
+    conditions.push(`location ILIKE $${values.length}`);
   }
-);
-app.post("/jobs", authenticate, requireRole("company"), async (req, res) => {
-  const { title, company, location, type } = req.body;
 
-  if (!title || !company) {
-    return res.status(400).json({ message: "title and company are required" });
+  if (type) {
+    values.push(type);
+    conditions.push(`type = $${values.length}`);
   }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   try {
     const result = await pool.query(
-      "INSERT INTO jobs (title, company, location, type, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [title, company, location, type, req.user.id]
+      `SELECT * FROM jobs ${where} ORDER BY id`,
+      values
     );
-    res.status(201).json(result.rows[0]);
+    res.json(result.rows);
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ message: "Server error" });
