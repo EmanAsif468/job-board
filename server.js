@@ -2,6 +2,7 @@ const express = require("express");
 const pool = require("./db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { authenticate, requireRole } = require("./auth");
 const app = express();
 app.use(express.json());
 
@@ -39,7 +40,7 @@ app.get("/jobs", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-app.post("/jobs", async (req, res) => {
+app.post("/jobs", authenticate, requireRole("company"), async (req, res) => {
   const { title, company, location, type } = req.body;
 
   if (!title || !company) {
@@ -57,7 +58,7 @@ app.post("/jobs", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-app.delete("/jobs/:id", async (req, res) => {
+app.delete("/jobs/:id", authenticate, requireRole("company"), async (req, res) => {
   const id = Number(req.params.id);
 
   if (!Number.isInteger(id)) {
@@ -80,7 +81,7 @@ app.delete("/jobs/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-app.put("/jobs/:id", async (req, res) => {
+app.put("/jobs/:id", authenticate, requireRole("company"), async (req, res) => {
   const id = Number(req.params.id);
   const { title, company, location, type } = req.body;
 
@@ -108,7 +109,7 @@ app.put("/jobs/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-app.post("/jobs/:id/applications", async (req, res) => {
+app.post("/jobs/:id/applications", authenticate, requireRole("candidate"), async (req, res) => {
   const jobId = Number(req.params.id);
   const { applicant_name, applicant_email, message } = req.body;
 
@@ -140,7 +141,7 @@ app.post("/jobs/:id/applications", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-app.get("/jobs/:id/applications", async (req, res) => {
+app.get("/jobs/:id/applications", authenticate, requireRole("company"), async (req, res) => {
   const jobId = Number(req.params.id);
 
   if (!Number.isInteger(jobId)) {
