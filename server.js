@@ -49,8 +49,8 @@ app.post("/jobs", authenticate, requireRole("company"), async (req, res) => {
 
   try {
     const result = await pool.query(
-      "INSERT INTO jobs (title, company, location, type) VALUES ($1, $2, $3, $4) RETURNING *",
-      [title, company, location, type]
+      "INSERT INTO jobs (title, company, location, type, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [title, company, location, type, req.user.id]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -66,44 +66,19 @@ app.delete("/jobs/:id", authenticate, requireRole("company"), async (req, res) =
   }
 
   try {
-    const result = await pool.query(
-      "DELETE FROM jobs WHERE id = $1 RETURNING *",
-      [id]
-    );
+    const existing = await pool.query("SELECT user_id FROM jobs WHERE id = $1", [id]);
 
-    if (result.rows.length === 0) {
+    if (existing.rows.length === 0) {
       return res.status(404).json({ message: "Job not found" });
     }
+
+    if (existing.rows[0].user_id !== req.user.id) {
+      return res.status(403).json({ message: "You can only delete your own jobs" });
+    }
+
+    const result = await pool.query("DELETE FROM jobs WHERE id = $1 RETURNING *", [id]);
 
     res.json({ message: "Job deleted", job: result.rows[0] });
-  } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-app.put("/jobs/:id", authenticate, requireRole("company"), async (req, res) => {
-  const id = Number(req.params.id);
-  const { title, company, location, type } = req.body;
-
-  if (!Number.isInteger(id)) {
-    return res.status(400).json({ message: "Invalid job id" });
-  }
-
-  if (!title || !company) {
-    return res.status(400).json({ message: "title and company are required" });
-  }
-
-  try {
-    const result = await pool.query(
-      "UPDATE jobs SET title = $1, company = $2, location = $3, type = $4 WHERE id = $5 RETURNING *",
-      [title, company, location, type, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Job not found" });
-    }
-
-    res.json(result.rows[0]);
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ message: "Server error" });
