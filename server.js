@@ -11,35 +11,44 @@ const PORT = 3000;
 app.get("/", (req, res) => {
   res.send("Hello from my API!");
 });
-app.get("/jobs", async (req, res) => {
-  const { location, type } = req.query;
+app.get(
+  "/jobs/:id/applications",
+  authenticate,
+  requireRole("company"),
+  async (req, res) => {
+    const jobId = Number(req.params.id);
 
-  const conditions = [];
-  const values = [];
+    if (!Number.isInteger(jobId)) {
+      return res.status(400).json({ message: "Invalid job id" });
+    }
 
-  if (location) {
-    values.push(`%${location}%`);
-    conditions.push(`location ILIKE $${values.length}`);
+    try {
+      const job = await pool.query("SELECT user_id FROM jobs WHERE id = $1", [
+        jobId,
+      ]);
+
+      if (job.rows.length === 0) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (job.rows[0].user_id !== req.user.id) {
+        return res
+          .status(403)
+          .json({ message: "You can only view applications for your own jobs" });
+      }
+
+      const result = await pool.query(
+        "SELECT * FROM applications WHERE job_id = $1 ORDER BY created_at DESC",
+        [jobId]
+      );
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error(error.message);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-
-  if (type) {
-    values.push(type);
-    conditions.push(`type = $${values.length}`);
-  }
-
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
-  try {
-    const result = await pool.query(
-      `SELECT * FROM jobs ${where} ORDER BY id`,
-      values
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ message: "Server error" });
-  }
-});
+);
 app.post("/jobs", authenticate, requireRole("company"), async (req, res) => {
   const { title, company, location, type } = req.body;
 
