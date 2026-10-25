@@ -7,10 +7,9 @@ const { authenticate, requireRole } = require("./auth");
 
 const app = express();
 app.use(express.json());
-app.use(cors({ origin: "http://localhost:3001" }));
+app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3001" }));
 
-const PORT = 3000;
-
+const PORT = process.env.PORT || 3000;
 app.get("/", (req, res) => {
   res.send("Hello from my API!");
 });
