@@ -166,39 +166,25 @@ app.delete("/jobs/:id", authenticate, requireRole("company"), async (req, res) =
 });
 
 // ---------- Applications ----------
+app.post("/jobs", authenticate, requireRole("company"), async (req, res) => {
+  const { title, company, location, type } = req.body;
 
-app.post("/jobs/:id/applications", authenticate, requireRole("candidate"), async (req, res) => {
-  const jobId = Number(req.params.id);
-  const { applicant_name, applicant_email, message } = req.body;
-
-  if (!Number.isInteger(jobId)) {
-    return res.status(400).json({ message: "Invalid job id" });
-  }
-
-  if (!applicant_name || !applicant_email) {
-    return res
-      .status(400)
-      .json({ message: "applicant_name and applicant_email are required" });
+  if (!title || !company) {
+    return res.status(400).json({ message: "title and company are required" });
   }
 
   try {
-    const job = await pool.query("SELECT id FROM jobs WHERE id = $1", [jobId]);
-
-    if (job.rows.length === 0) {
-      return res.status(404).json({ message: "Job not found" });
-    }
-
     const result = await pool.query(
-      "INSERT INTO applications (job_id, applicant_name, applicant_email, message) VALUES ($1, $2, $3, $4) RETURNING *",
-      [jobId, applicant_name, applicant_email, message]
+      "INSERT INTO jobs (title, company, location, type, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [title, company, location, type, req.user.id]
     );
-
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error.message);
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 app.get("/jobs/:id/applications", authenticate, requireRole("company"), async (req, res) => {
   const jobId = Number(req.params.id);
