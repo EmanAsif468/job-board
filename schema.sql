@@ -23,5 +23,6 @@ CREATE TABLE applications (
   applicant_name VARCHAR(100) NOT NULL,
   applicant_email VARCHAR(150) NOT NULL,
   message TEXT,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT NOW(),
+  CONSTRAINT applications_job_email_unique UNIQUE (job_id, applicant_email)
 );
