@@ -188,7 +188,29 @@ app.post("/jobs/:id/applications", authenticate, requireRole("candidate"), async
     res.status(500).json({ message: "Server error" });
   }
 });
+app.get("/my/applications", authenticate, requireRole("candidate"), async (req, res) => {
+  try {
+    const user = await pool.query("SELECT email FROM users WHERE id = $1", [req.user.id]);
 
+    if (user.rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const result = await pool.query(
+      `SELECT a.id, a.message, a.created_at, j.id AS job_id, j.title, j.company, j.location, j.type
+       FROM applications a
+       JOIN jobs j ON j.id = a.job_id
+       WHERE a.applicant_email = $1
+       ORDER BY a.created_at DESC`,
+      [user.rows[0].email]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 app.get("/jobs/:id/applications", authenticate, requireRole("company"), async (req, res) => {
   const jobId = Number(req.params.id);
 
